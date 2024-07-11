@@ -365,6 +365,15 @@ input[type="file"] {
 
 /* message erreur login*/
 
+#forgot-password {
+    color: #3D3D3D;
+    text-align: center;
+    margin-top: 28px;
+    margin-bottom: 355px;
+    font-size: 14px;
+    text-decoration: underline;
+}
+
 .error {
     color: #1D6154;
     font-weight: bold;

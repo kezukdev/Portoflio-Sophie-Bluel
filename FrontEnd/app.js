@@ -222,10 +222,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
     document.getElementById('logoutButton').addEventListener('click', logoutUser);
 });
 
-
-
-
-
 // modal 
 let modalStack = [];
 let focusables = [];
