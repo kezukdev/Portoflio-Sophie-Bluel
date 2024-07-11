@@ -283,51 +283,100 @@ const focusInModal = function (e) {
     focusables[index].focus();
 }
 
-if (window.location.pathname == "/FrontEnd/homepage_edit.html" || window.location.pathname == "/FrontEnd/index.html") {
+fetchWorks().then(data => {
+    if (data) {
+        const categories = organizeByCategory(data);
+        const galleryElement = setupGalleryElement();
+        const filterContainerElement = createFilterContainer();
+        addCategoryButtonsToFilterContainer(categories, data, filterContainerElement);
+        appendElementsToContent(filterContainerElement, galleryElement);
+        filterContainerElement.querySelector('button').click();
+    }
+});
+document.querySelectorAll('.js-modal').forEach(a => {
+    a.addEventListener('click', openModal)
+
+})
+
+window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+        closeModal(e)
+    }
+    if (e.key === 'Tab' && modal !== null) {
+        focusInModal(e)
+    }
+})
+
+const modalGallery = document.querySelector('#modal1 .gallerie');
+
+fetchWorks().then(data => {
+    const modalGalleryElement = document.querySelector('#modal1 .gallerie');
+    data.forEach(work => appendWorkToModal(work, modalGalleryElement));
+
+});
 
 
-    fetchWorks().then(data => {
-        if (data) {
-            const categories = organizeByCategory(data);
-            const galleryElement = setupGalleryElement();
-            const filterContainerElement = createFilterContainer();
-            addCategoryButtonsToFilterContainer(categories, data, filterContainerElement);
-            appendElementsToContent(filterContainerElement, galleryElement);
-            filterContainerElement.querySelector('button').click();
+const categorySelect = document.querySelector('#category');
+let defaultOption = document.createElement('option');
+defaultOption.value = "";
+defaultOption.textContent = "";
+categorySelect.appendChild(defaultOption);
+
+
+fetch('http://localhost:5678/api/categories', {
+    method: 'GET'
+})
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(response.status);
         }
-    });
-    document.querySelectorAll('.js-modal').forEach(a => {
-        a.addEventListener('click', openModal)
-
+        return response.json();
     })
-
-    window.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' || e.key === 'Esc') {
-            closeModal(e)
-        }
-        if (e.key === 'Tab' && modal !== null) {
-            focusInModal(e)
-        }
+    .then(data => {
+        data.forEach(category => {
+            let option = document.createElement('option');
+            option.value = category.id;
+            option.textContent = category.name;
+            categorySelect.appendChild(option);
+        });
     })
-
-    const modalGallery = document.querySelector('#modal1 .gallerie');
-
-    fetchWorks().then(data => {
-        const modalGalleryElement = document.querySelector('#modal1 .gallerie');
-        data.forEach(work => appendWorkToModal(work, modalGalleryElement));
-
+    .catch(error => {
+        console.error('Erreur:', error);
     });
 
 
-    const categorySelect = document.querySelector('#category');
-    let defaultOption = document.createElement('option');
-    defaultOption.value = "";
-    defaultOption.textContent = "";
-    categorySelect.appendChild(defaultOption);
 
 
-    fetch('http://localhost:5678/api/categories', {
-        method: 'GET'
+const addWorkForm = document.querySelector('#addWorkForm');
+const submitButton = document.querySelector('#btn-modal');
+addWorkForm.querySelectorAll('input, select').forEach(input => {
+    input.addEventListener('input', checkForm);
+});
+
+function checkForm() {
+    const isFormValid = Array.from(addWorkForm.querySelectorAll('input, select')).every(input => input.value !== '');
+    submitButton.style.backgroundColor = isFormValid ? 'rgb(29, 97, 84, 1)' : 'rgb(164, 157, 157)';
+    submitButton.disabled = !isFormValid;
+}
+
+addWorkForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const formData = new FormData();
+    let image = document.querySelector('#photoUpload').files[0];
+    let title = document.querySelector('#title').value
+    let categorie = document.querySelector('#category').value;
+
+    formData.append('image', image);
+    formData.append('title', title);
+    formData.append('category', categorie);
+
+    fetch('http://localhost:5678/api/works', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token'),
+        },
+        body: formData
     })
         .then(response => {
             if (!response.ok) {
@@ -335,106 +384,64 @@ if (window.location.pathname == "/FrontEnd/homepage_edit.html" || window.locatio
             }
             return response.json();
         })
-        .then(data => {
-            data.forEach(category => {
-                let option = document.createElement('option');
-                option.value = category.id;
-                option.textContent = category.name;
-                categorySelect.appendChild(option);
-            });
+        .then(work => {  
+            const galleryElement = document.getElementById('gallery');
+            const modalGalleryElement = document.querySelector('#modal1 .gallerie');
+            appendWorkToGallery(work, galleryElement);
+            appendWorkToModal(work, modalGalleryElement);
+
+           
+            alert("Le travail a été posté avec succès !");
         })
         .catch(error => {
             console.error('Erreur:', error);
+            
+            alert("Une erreur s'est produite lors de la publication du travail. Veuillez réessayer.");
         });
 
+    
+    document.querySelector('#title').value = "";
+    document.querySelector('#category').value = "";
+    document.querySelector("#preview-img").src = "";
+
+    // Clone et remplace l'élément d'input pour le fichier
+    let oldInput = document.querySelector('#photoUpload');
+    let newInput = oldInput.cloneNode(true);
+    oldInput.parentNode.replaceChild(newInput, oldInput);
+
+    // Affiche à nouveau le bouton d'upload d'image
+    const label = document.querySelector('.custom-file-upload');
+    const p = document.querySelector('.photoUpload p');
+    const icones = document.querySelector('.fa-image');
+    label.style.display = 'inline-block';
+    p.style.display = 'block';
+    icones.style.display = 'block';
+});
 
 
+let fileInput = document.querySelector("#photoUpload");
+let preview = document.querySelector("#preview-img");
 
-    const addWorkForm = document.querySelector('#addWorkForm');
-    const submitButton = document.querySelector('#btn-modal');
-    addWorkForm.querySelectorAll('input, select').forEach(input => {
-        input.addEventListener('input', checkForm);
-    });
+const maxFileSize = 4 * 1024 * 1024;
+const allowedFormats = /(\.jpg|\.jpeg|\.png)$/i;
 
-    function checkForm() {
-        const isFormValid = Array.from(addWorkForm.querySelectorAll('input, select')).every(input => input.value !== '');
-        submitButton.style.backgroundColor = isFormValid ? 'rgb(29, 97, 84, 1)' : 'rgb(164, 157, 157)';
-        submitButton.disabled = !isFormValid;
+document.getElementById('photoUpload').addEventListener('change', function (event) {
+    let input = event.target;
+    let file = input.files[0];
+
+    if (file.size > maxFileSize) {
+        input.value = "";
+        alert("Le fichier est trop volumineux. Veuillez sélectionner un fichier de taille inférieure à 4 Mo.");
+        return;
     }
 
-    addWorkForm.addEventListener('submit', function (e) {
-        e.preventDefault();
+    if (!allowedFormats.exec(file.name)) {
+        input.value = "";
+        alert("Format de fichier non valide. Veuillez sélectionner un fichier JPEG ou PNG.");
+        return;
+    }
 
-        const formData = new FormData();
-        let image = document.querySelector('#photoUpload').files[0];
-        let title = document.querySelector('#title').value
-        let categorie = document.querySelector('#category').value;
-
-        formData.append('image', image);
-        formData.append('title', title);
-        formData.append('category', categorie);
-
-        fetch('http://localhost:5678/api/works', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('token'),
-            },
-            body: formData
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(response.status);
-                }
-                return response.json();
-            })
-            .then(work => {  
-                const galleryElement = document.getElementById('gallery');
-                const modalGalleryElement = document.querySelector('#modal1 .gallerie');
-                appendWorkToGallery(work, galleryElement);
-                appendWorkToModal(work, modalGalleryElement);
-
-               
-                alert("Le travail a été posté avec succès !");
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                
-                alert("Une erreur s'est produite lors de la publication du travail. Veuillez réessayer.");
-            });
-
-        
-        document.querySelector('#title').value = "";
-        document.querySelector('#category').value = "";
-        document.querySelector("#preview-img").src = "";
-
-        // Clone et remplace l'élément d'input pour le fichier
-        let oldInput = document.querySelector('#photoUpload');
-        let newInput = oldInput.cloneNode(true);
-        oldInput.parentNode.replaceChild(newInput, oldInput);
-
-        // Affiche à nouveau le bouton d'upload d'image
-        const label = document.querySelector('.custom-file-upload');
-        const p = document.querySelector('.photoUpload p');
-        const icones = document.querySelector('.fa-image');
-        label.style.display = 'inline-block';
-        p.style.display = 'block';
-        icones.style.display = 'block';
-    });
-
-
-    let fileInput = document.querySelector("#photoUpload");
-    let preview = document.querySelector("#preview-img");
-    fileInput.addEventListener("change", function (event) {
-        let file = event.target.files[0];
-        let url = URL.createObjectURL(file);
-        preview.src = url;
-    });
-
-    document.getElementById('photoUpload').addEventListener('change', function (event) {
-        const input = event.target;
-
-        if ('files' in input && input.files.length > 0) {
-            placeImage(input.files[0]);
-        }
-    }, false);
-}
+    let preview = document.getElementById('preview-img');
+    let url = URL.createObjectURL(file);
+    preview.src = url;
+});

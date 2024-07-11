@@ -3,10 +3,7 @@ form.addEventListener('submit', (e) => {
     e.preventDefault();
 
     let email = document.getElementById('email').value;
-    let password = document.getElementById('password');
-    if (password) {
-        password = password.value;
-    }
+    let password = document.getElementById('password').value;
     fetch('http://localhost:5678/api/users/login', {
         method: 'POST',
         headers: {
